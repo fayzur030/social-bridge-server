@@ -3,11 +3,41 @@ const app = express()
 import 'dotenv/config'
 import { MongoClient, ObjectId } from 'mongodb'
 import cors from 'cors'
+import { createRemoteJWKSet, jwtVerify } from 'jose'
 const port = 5000
 
 // todo: middleware
 app.use(express.json())
 app.use(cors())
+
+//Todo: Middleware token verification
+const verifyToken = async (req, res, next) => {
+  const authHeader = req.headers.authorization
+  if (!authHeader) {
+    return res.status(401).send({ message: 'Unauthorized access' })
+  }
+  const token = authHeader.split(' ')[1]
+
+  if (!token) {
+    return res.status(401).send({ message: 'Unauthorized access' })
+  }
+
+  try {
+    const JWKS = createRemoteJWKSet(
+      new URL(`${process.env.CLIENT_URL}/api/auth/jwks`)
+    )
+
+    const { payload } = await jwtVerify(token, JWKS)
+    // console.log('Verified Payload:', payload)
+    req.decoded = payload
+  } catch (error) {
+    console.error('Token verification failed:', error)
+    return res.status(401).send({
+      message: 'Invalid token',
+    })
+  }
+  next()
+}
 
 //todo: mongodb connect
 const client = new MongoClient(process.env.MONGO_CLIENT_URI)
@@ -27,7 +57,7 @@ const eventsCollection = db.collection('events')
 const joinedEvents = db.collection('joinedEvents')
 
 //todo: manage-events => localhost:5000/manage-events
-app.get('/manage-events/:email', async (req, res) => {
+app.get('/manage-events/:email', verifyToken, async (req, res) => {
   try {
     const { email } = req.params
     const result = await eventsCollection.find({ email: email }).toArray()
@@ -44,7 +74,7 @@ app.get('/manage-events/:email', async (req, res) => {
 })
 
 //todo: manage-events delete => localhost:5000/delete-manage-events
-app.delete('/delete-manage-events/:id', async (req, res) => {
+app.delete('/delete-manage-events/:id', verifyToken, async (req, res) => {
   try {
     const { id } = req.params
 
@@ -71,7 +101,7 @@ app.delete('/delete-manage-events/:id', async (req, res) => {
 })
 
 //todo: manage-events update => localhost:5000/update-manage-events
-app.patch('/update-manage-events/:id', async (req, res) => {
+app.patch('/update-manage-events/:id', verifyToken, async (req, res) => {
   try {
     const { id } = req.params
     const result = await eventsCollection.updateOne(
@@ -95,7 +125,7 @@ app.patch('/update-manage-events/:id', async (req, res) => {
 })
 
 // todo: add to join => localhost:5000/joined-events
-app.post('/joined-events', async (req, res) => {
+app.post('/joined-events', verifyToken, async (req, res) => {
   try {
     const joinedEvent = req.body
     if (!joinedEvent.participant?.email || !joinedEvent.eventId) {
@@ -128,7 +158,7 @@ app.post('/joined-events', async (req, res) => {
 
 //todo: find all joined events => localhost:5000/joined-events
 
-app.get('/joined-events/:email', async (req, res) => {
+app.get('/joined-events/:email', verifyToken, async (req, res) => {
   try {
     const { email } = req.params
     const result = await joinedEvents
@@ -147,38 +177,42 @@ app.get('/joined-events/:email', async (req, res) => {
 })
 //todo: leave joined event => localhost:5000/leave-joined-event/:eventId
 
-app.delete('/leave-joined-events/:eventId/:email', async (req, res) => {
-  try {
-    const { eventId, email } = req.params
+app.delete(
+  '/leave-joined-events/:eventId/:email',
+  verifyToken,
+  async (req, res) => {
+    try {
+      const { eventId, email } = req.params
 
-    const result = await joinedEvents.deleteOne({
-      eventId,
-      'participant.email': email,
-    })
+      const result = await joinedEvents.deleteOne({
+        eventId,
+        'participant.email': email,
+      })
 
-    if (result.deletedCount === 0) {
-      return res.status(404).send({
-        status: 404,
-        message: 'Joined event not found',
+      if (result.deletedCount === 0) {
+        return res.status(404).send({
+          status: 404,
+          message: 'Joined event not found',
+        })
+      }
+
+      res.status(200).send({
+        status: 200,
+        message: 'Left joined event successfully',
+        data: result,
+      })
+    } catch (error) {
+      res.status(500).send({
+        status: 500,
+        message: 'Failed to leave joined event',
+        error: error.message,
       })
     }
-
-    res.status(200).send({
-      status: 200,
-      message: 'Left joined event successfully',
-      data: result,
-    })
-  } catch (error) {
-    res.status(500).send({
-      status: 500,
-      message: 'Failed to leave joined event',
-      error: error.message,
-    })
   }
-})
+)
 
 // todo: create event => localhost:5000/create-events
-app.post('/create-events', async (req, res) => {
+app.post('/create-events', verifyToken, async (req, res) => {
   try {
     const createEvents = req.body
     const result = await eventsCollection.insertOne(createEvents)
