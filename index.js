@@ -98,6 +98,20 @@ app.patch('/update-manage-events/:id', async (req, res) => {
 app.post('/joined-events', async (req, res) => {
   try {
     const joinedEvent = req.body
+    if (!joinedEvent.participant?.email || !joinedEvent.eventId) {
+      return res.status(400).send({
+        message: 'Event ID and participant email are required',
+      })
+    }
+    const alreadyJoined = await joinedEvents.findOne({
+      eventId: joinedEvent.eventId,
+      'participant.email': joinedEvent.participant.email,
+    })
+    if (alreadyJoined) {
+      return res.status(409).send({
+        message: 'You have already joined this event',
+      })
+    }
     const result = await joinedEvents.insertOne(joinedEvent)
     res.status(201).send({
       message: 'Joined event created successfully',
@@ -131,6 +145,37 @@ app.get('/joined-events/:email', async (req, res) => {
     res.status(500).send({ error: 'Internal Server Error' })
   }
 })
+//todo: leave joined event => localhost:5000/leave-joined-event/:eventId
+
+app.delete('/leave-joined-events/:eventId/:email', async (req, res) => {
+  try {
+    const { eventId, email } = req.params
+
+    const result = await joinedEvents.deleteOne({
+      eventId,
+      'participant.email': email,
+    })
+
+    if (result.deletedCount === 0) {
+      return res.status(404).send({
+        status: 404,
+        message: 'Joined event not found',
+      })
+    }
+
+    res.status(200).send({
+      status: 200,
+      message: 'Left joined event successfully',
+      data: result,
+    })
+  } catch (error) {
+    res.status(500).send({
+      status: 500,
+      message: 'Failed to leave joined event',
+      error: error.message,
+    })
+  }
+})
 
 // todo: create event => localhost:5000/create-events
 app.post('/create-events', async (req, res) => {
@@ -151,7 +196,6 @@ app.post('/create-events', async (req, res) => {
 })
 
 //todo: find all upcoming events => localhost:5000/events
-
 app.get('/events', async (req, res) => {
   try {
     const today = new Date()
@@ -176,8 +220,9 @@ app.get('/events', async (req, res) => {
   }
 })
 
-//todo: find single event => localhost:5000/events/:id
+//todo: leave event => localhost:5000/leave-event/:id
 
+//todo: find single event => localhost:5000/events/:id
 app.get('/events/:id', async (req, res) => {
   try {
     const { id } = req.params
