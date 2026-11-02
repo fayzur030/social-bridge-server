@@ -78,7 +78,7 @@ app.post('/categories', verifyToken, async (req, res) => {
     const newCategory = {
       name,
       slug: slug.toLowerCase(),
-      createdAt: new Date(),
+      // createdAt: new Date(),
     }
     const result = await eventCategoriesCollection.insertOne(newCategory)
     res.status(201).send({
@@ -92,13 +92,11 @@ app.post('/categories', verifyToken, async (req, res) => {
   }
 })
 
-//todo: get all category => localhost:5000/events/category/category
-app.get('/events/category/:category', verifyToken, async (req, res) => {
+//todo: get all category => localhost:5000/events/categories
+
+app.get('/categories', verifyToken, async (req, res) => {
   try {
-    const { category } = req.params
-    const result = await eventsCollection
-      .find({ eventType: category })
-      .toArray()
+    const result = await eventCategoriesCollection.find().toArray()
 
     res.status(200).send({
       success: true,
@@ -107,7 +105,7 @@ app.get('/events/category/:category', verifyToken, async (req, res) => {
   } catch (error) {
     res.status(500).send({
       success: false,
-      message: 'Failed to fetch events',
+      message: 'Failed to fetch categories',
     })
   }
 })
@@ -289,12 +287,13 @@ app.post('/create-events', verifyToken, async (req, res) => {
 //todo: find all upcoming events => localhost:5000/events
 app.get('/events', async (req, res) => {
   try {
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
+    const today = new Date().toLocaleDateString('en-CA', {
+      timeZone: 'Asia/Dhaka',
+    })
 
     const events = await eventsCollection
       .find({
-        eventDate: { $gte: today.toISOString().split('T')[0] },
+        eventDate: { $gte: today },
       })
       .toArray()
     res.status(202).send({
