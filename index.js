@@ -93,7 +93,7 @@ app.post('/categories', verifyToken, async (req, res) => {
 })
 
 //todo: get all category => localhost:5000/events/category/category
-app.get('/events/category/:category', async (req, res) => {
+app.get('/events/category/:category', verifyToken, async (req, res) => {
   try {
     const { category } = req.params
     const result = await eventsCollection
