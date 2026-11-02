@@ -55,6 +55,62 @@ const mongoClient = await connectToMongoDB()
 const db = mongoClient.db('socialbridge')
 const eventsCollection = db.collection('events')
 const joinedEvents = db.collection('joinedEvents')
+const eventCategoriesCollection = db.collection('categories')
+
+//todo: create categories post => localhost:5000/categories
+app.post('/categories', verifyToken, async (req, res) => {
+  try {
+    const { name, slug } = req.body
+    if (!name || !slug) {
+      return res.status(400).send({
+        message: 'Category name and slug are required',
+      })
+    }
+    const existingCategory = await eventCategoriesCollection.findOne({
+      slug: slug.toLowerCase(),
+    })
+
+    if (existingCategory) {
+      return res.status(409).send({
+        message: 'Category already exists',
+      })
+    }
+    const newCategory = {
+      name,
+      slug: slug.toLowerCase(),
+      createdAt: new Date(),
+    }
+    const result = await eventCategoriesCollection.insertOne(newCategory)
+    res.status(201).send({
+      message: 'Category created successfully',
+      data: result,
+    })
+  } catch (error) {
+    res.status(500).send({
+      message: 'Failed to create category',
+    })
+  }
+})
+
+//todo: get all category => localhost:5000/events/category/category
+app.get('/events/category/:category', async (req, res) => {
+  try {
+    const { category } = req.params
+    const result = await eventsCollection
+      .find({ eventType: category })
+      .toArray()
+
+    res.status(200).send({
+      success: true,
+      data: result,
+    })
+  } catch (error) {
+    res.status(500).send({
+      success: false,
+      message: 'Failed to fetch events',
+    })
+  }
+})
 
 //todo: manage-events => localhost:5000/manage-events
 app.get('/manage-events/:email', verifyToken, async (req, res) => {
@@ -175,6 +231,7 @@ app.get('/joined-events/:email', verifyToken, async (req, res) => {
     res.status(500).send({ error: 'Internal Server Error' })
   }
 })
+
 //todo: leave joined event => localhost:5000/leave-joined-event/:eventId
 
 app.delete(
@@ -254,8 +311,6 @@ app.get('/events', async (req, res) => {
   }
 })
 
-//todo: leave event => localhost:5000/leave-event/:id
-
 //todo: find single event => localhost:5000/events/:id
 app.get('/events/:id', async (req, res) => {
   try {
@@ -275,7 +330,7 @@ app.get('/events/:id', async (req, res) => {
   }
 })
 
-// toto : Recent Upcoming Events API => localhost:5000/recent-upcoming-events
+// todo : Recent Upcoming Events API => localhost:5000/recent-upcoming-events
 
 app.get('/recent-upcoming-events', async (req, res) => {
   try {
