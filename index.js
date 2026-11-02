@@ -275,6 +275,42 @@ app.get('/events/:id', async (req, res) => {
   }
 })
 
+// toto : Recent Upcoming Events API => localhost:5000/recent-upcoming-events
+
+app.get('/recent-upcoming-events', async (req, res) => {
+  try {
+    const today = new Date().toLocaleDateString('en-CA', {
+      timeZone: 'Asia/Dhaka',
+    })
+
+    const recentEvents = await eventsCollection
+      .find({
+        eventDate: {
+          $gte: today,
+        },
+      })
+      .sort({
+        eventDate: 1,
+      })
+      .limit(6)
+      .toArray()
+
+    res.status(200).send({
+      success: true,
+      message: 'Recent upcoming events fetched successfully',
+      data: recentEvents,
+    })
+  } catch (error) {
+    console.log(error)
+
+    res.status(500).send({
+      success: false,
+      message: 'Failed to fetch recent upcoming events',
+      error: error.message,
+    })
+  }
+})
+
 //todo: api home page
 app.get('/', (req, res) => {
   res.send({ message: 'Welcome to Social Event Platform' })
