@@ -94,7 +94,7 @@ app.post('/categories', verifyToken, async (req, res) => {
 
 //todo: get all category => localhost:5000/events/categories
 
-app.get('/categories', verifyToken, async (req, res) => {
+app.get('/categories', async (req, res) => {
   try {
     const result = await eventCategoriesCollection.find().toArray()
 
@@ -106,6 +106,25 @@ app.get('/categories', verifyToken, async (req, res) => {
     res.status(500).send({
       success: false,
       message: 'Failed to fetch categories',
+    })
+  }
+})
+
+//todo: single category event: localhost:5000/events/categories/:slug
+app.get('/categories/:slug', verifyToken, async (req, res) => {
+  try {
+    const { slug } = req.params
+    const result = await eventsCollection
+      .find({ category: slug.toLowerCase() })
+      .toArray()
+    res.status(200).send({
+      status: 200,
+      message: 'Category events fetched successfully',
+      data: result,
+    })
+  } catch (error) {
+    res.status(500).send({
+      message: 'Failed to fetch category events',
     })
   }
 })
